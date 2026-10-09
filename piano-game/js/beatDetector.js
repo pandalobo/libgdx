@@ -24,25 +24,25 @@ class BeatDetector {
     const totalDuration = audioBuffer.duration;
 
     const speedMap = {
-      easy: 350,
-      medium: 450,
-      hard: 550,
-      legend: 650,
-      predator: 750
+      easy: 380,
+      medium: 480,
+      hard: 580,
+      legend: 680,
+      predator: 780
     };
-    const speed = speedMap[difficulty] || 450;
+    const speed = speedMap[difficulty] || 480;
     const laneWidth = canvasWidth / this.lanes;
 
-    // Parameters based on difficulty
+    // Adjusted parameters based on difficulty for frequent, accurate notes synced to beats
     const params = {
-      easy: { thresholdSensitivity: 1.6, minLaneGap: 0.40, longNoteProb: 0.15, maxLongLen: 0.8, maxChords: 1 },
-      medium: { thresholdSensitivity: 1.35, minLaneGap: 0.30, longNoteProb: 0.22, maxLongLen: 1.2, maxChords: 1 },
-      hard: { thresholdSensitivity: 1.15, minLaneGap: 0.22, longNoteProb: 0.30, maxLongLen: 1.5, maxChords: 2 },
-      legend: { thresholdSensitivity: 1.05, minLaneGap: 0.16, longNoteProb: 0.38, maxLongLen: 2.0, maxChords: 2 },
-      predator: { thresholdSensitivity: 0.92, minLaneGap: 0.12, longNoteProb: 0.45, maxLongLen: 2.5, maxChords: 2 }
-    }[difficulty] || { thresholdSensitivity: 1.35, minLaneGap: 0.30, longNoteProb: 0.22, maxLongLen: 1.2, maxChords: 1 };
+      easy: { thresholdSensitivity: 1.2, minLaneGap: 0.35, longNoteProb: 0.15, maxLongLen: 0.8, maxChords: 1 },
+      medium: { thresholdSensitivity: 1.0, minLaneGap: 0.25, longNoteProb: 0.22, maxLongLen: 1.2, maxChords: 1 },
+      hard: { thresholdSensitivity: 0.85, minLaneGap: 0.18, longNoteProb: 0.30, maxLongLen: 1.5, maxChords: 2 },
+      legend: { thresholdSensitivity: 0.75, minLaneGap: 0.14, longNoteProb: 0.38, maxLongLen: 2.0, maxChords: 2 },
+      predator: { thresholdSensitivity: 0.65, minLaneGap: 0.10, longNoteProb: 0.45, maxLongLen: 2.5, maxChords: 2 }
+    }[difficulty] || { thresholdSensitivity: 1.0, minLaneGap: 0.25, longNoteProb: 0.22, maxLongLen: 1.2, maxChords: 1 };
 
-    const frameSize = Math.floor(sampleRate * 0.04); // 40ms frame
+    const frameSize = Math.floor(sampleRate * 0.03); // 30ms frame for high accuracy
     const stepSize = Math.floor(frameSize / 2);
     const totalSteps = Math.floor((pcm.length - frameSize) / stepSize);
     const energies = new Float32Array(totalSteps);
@@ -59,30 +59,29 @@ class BeatDetector {
       energies[idx] = Math.sqrt(sum / frameSize);
       times[idx] = offset / sampleRate;
 
-      if (progressCallback && idx % 2000 === 0) {
-        progressCallback(Math.floor((idx / totalSteps) * 50)); // 0-50% scanning
+      if (progressCallback && idx % 3000 === 0) {
+        progressCallback(Math.floor((idx / totalSteps) * 50));
       }
     }
 
-    // 2. Local Adaptive Thresholding (Sliding Window of ~1.5s = ~75 frames)
-    const windowHalfSpan = 38;
+    // 2. Local Adaptive Thresholding (Sliding Window of ~1.2s = ~80 frames)
+    const windowHalfSpan = 40;
     const rawNotes = [];
-    const laneLastFreeTime = [0, 0, 0, 0]; // Tracks when each lane is free from notes/long-tails
-    const preRollOffset = 1.5; // 1.5s scroll delay before notes reach hit line
+    const laneLastFreeTime = [0, 0, 0, 0];
 
     let lastGlobalNoteTime = -1;
     let prevLane = -1;
 
     for (let i = 1; i < totalSteps - 1; i++) {
-      if (progressCallback && i % 2000 === 0) {
-        progressCallback(50 + Math.floor((i / totalSteps) * 50)); // 50-100% generating
+      if (progressCallback && i % 3000 === 0) {
+        progressCallback(50 + Math.floor((i / totalSteps) * 50));
       }
 
       const curr = energies[i];
       const prev = energies[i - 1];
       const next = energies[i + 1];
 
-      // Calculate local average energy in sliding window
+      // Local average energy
       let localSum = 0;
       let count = 0;
       const startW = Math.max(0, i - windowHalfSpan);
@@ -94,27 +93,22 @@ class BeatDetector {
       const localAvg = localSum / (count || 1);
       const localThreshold = localAvg * params.thresholdSensitivity;
 
-      // Peak detection relative to local environment
-      if (curr > localThreshold && curr > prev && curr >= next && curr > 0.015) {
+      // Transient energy peak check
+      if (curr > localThreshold && curr > prev && curr >= next && curr > 0.008) {
         const rawTime = times[i];
-        const noteTime = rawTime + preRollOffset;
 
-        // Ensure global minimum separation between note starts
-        if (rawTime - lastGlobalNoteTime >= 0.08) {
-          // Find available lanes that do not collide with active/long notes
+        if (rawTime - lastGlobalNoteTime >= 0.06) {
           const availableLanes = [];
           for (let l = 0; l < this.lanes; l++) {
-            if (noteTime >= laneLastFreeTime[l] + params.minLaneGap) {
+            if (rawTime >= laneLastFreeTime[l] + params.minLaneGap) {
               availableLanes.push(l);
             }
           }
 
           if (availableLanes.length > 0) {
-            // Determine chord size (1 note or 2 simultaneous notes for heavy hits in hard difficulties)
-            const isHeavyHit = curr > localThreshold * 1.5;
+            const isHeavyHit = curr > localThreshold * 1.4;
             const targetChords = (isHeavyHit && availableLanes.length >= 2 && params.maxChords > 1) ? 2 : 1;
 
-            // Pick lane(s) prioritizing variation from previous lane
             availableLanes.sort(() => Math.random() - 0.5);
             if (targetChords === 1 && availableLanes.includes(prevLane) && availableLanes.length > 1) {
               availableLanes.splice(availableLanes.indexOf(prevLane), 1);
@@ -123,13 +117,12 @@ class BeatDetector {
             const chosenLanes = availableLanes.slice(0, targetChords);
 
             for (let lane of chosenLanes) {
-              // Determine if long note or short note
-              const isLong = Math.random() < params.longNoteProb && (curr > localThreshold * 1.25);
+              const isLong = Math.random() < params.longNoteProb && (curr > localThreshold * 1.2);
               let duration = 0;
 
               if (isLong) {
                 let endIdx = i;
-                while (endIdx < totalSteps && energies[endIdx] > localThreshold * 0.65) {
+                while (endIdx < totalSteps && energies[endIdx] > localThreshold * 0.6) {
                   endIdx++;
                 }
                 const sustainedSecs = (endIdx - i) * (stepSize / sampleRate);
@@ -138,7 +131,7 @@ class BeatDetector {
 
               rawNotes.push({
                 id: Math.random().toString(36).substr(2, 9),
-                time: Number(noteTime.toFixed(3)),
+                time: Number(rawTime.toFixed(3)),
                 duration: Number(duration.toFixed(3)),
                 lane: lane,
                 type: duration > 0 ? 'long' : 'short',
@@ -150,8 +143,7 @@ class BeatDetector {
                 missed: false
               });
 
-              // Reserve lane until note duration + gap expires
-              laneLastFreeTime[lane] = noteTime + duration;
+              laneLastFreeTime[lane] = rawTime + duration;
               prevLane = lane;
             }
 
@@ -161,21 +153,20 @@ class BeatDetector {
       }
     }
 
-    // 3. Robust Fallback Generator if audio is extremely quiet
-    if (rawNotes.length < 15) {
-      const fallbackInterval = Math.max(0.35, params.minLaneGap * 1.5);
-      for (let t = 0.5; t < totalDuration - 1.0; t += fallbackInterval) {
-        const noteTime = t + preRollOffset;
+    // 3. Dense rhythmic generator fallback if song has soft/quiet acoustic sections
+    const minNoteSpacing = Math.max(0.2, params.minLaneGap);
+    if (rawNotes.length < 20) {
+      for (let t = 0.3; t < totalDuration - 0.5; t += minNoteSpacing * 1.2) {
         let lane = Math.floor(Math.random() * this.lanes);
         if (lane === prevLane) lane = (lane + 1) % this.lanes;
 
-        if (noteTime >= laneLastFreeTime[lane] + params.minLaneGap) {
+        if (t >= laneLastFreeTime[lane] + params.minLaneGap) {
           const isLong = Math.random() < params.longNoteProb;
-          const dur = isLong ? 0.6 : 0;
+          const dur = isLong ? 0.5 : 0;
 
           rawNotes.push({
             id: Math.random().toString(36).substr(2, 9),
-            time: Number(noteTime.toFixed(3)),
+            time: Number(t.toFixed(3)),
             duration: Number(dur.toFixed(3)),
             lane: lane,
             type: dur > 0 ? 'long' : 'short',
@@ -187,13 +178,12 @@ class BeatDetector {
             missed: false
           });
 
-          laneLastFreeTime[lane] = noteTime + dur;
+          laneLastFreeTime[lane] = t + dur;
           prevLane = lane;
         }
       }
     }
 
-    // Sort notes chronologically
     return rawNotes.sort((a, b) => a.time - b.time);
   }
 }

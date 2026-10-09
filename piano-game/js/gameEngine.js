@@ -45,7 +45,7 @@ class GameEngine {
     this.canvas.width = this.width;
     this.canvas.height = this.height;
 
-    this.hitLineY = this.height - 110;
+    this.hitLineY = this.height - 100;
     this.laneWidth = this.width / this.lanes;
 
     if (this.notes && this.notes.length > 0) {
@@ -126,7 +126,6 @@ class GameEngine {
   startGame() {
     this.resize();
 
-    // Sound engine prep
     if (window.audioManager) {
       window.audioManager.stop();
     }
@@ -137,7 +136,6 @@ class GameEngine {
 
     if (scanOverlay) scanOverlay.classList.remove('hidden');
 
-    // Run Beat Detector chart generation with progress update
     setTimeout(() => {
       if (window.beatDetector && window.audioManager && window.audioManager.audioBuffer) {
         this.notes = window.beatDetector.generateChart(
@@ -148,7 +146,7 @@ class GameEngine {
           this.hitLineY,
           (pct) => {
             if (scanBarFill) scanBarFill.style.width = `${pct}%`;
-            if (scanStatusText) scanStatusText.textContent = `Escaneando frecuencias y ritmo RMS (${pct}%)`;
+            if (scanStatusText) scanStatusText.textContent = `Analizando notas y melodía (${pct}%)`;
           }
         );
       } else {
@@ -156,7 +154,7 @@ class GameEngine {
       }
 
       if (scanBarFill) scanBarFill.style.width = '100%';
-      if (scanStatusText) scanStatusText.textContent = '¡Análisis completado! Preparando juego...';
+      if (scanStatusText) scanStatusText.textContent = '¡Análisis completado!';
 
       setTimeout(() => {
         if (scanOverlay) scanOverlay.classList.add('hidden');
@@ -176,15 +174,14 @@ class GameEngine {
 
         this.updateHUD();
 
-        // Start 3-2-1 Countdown before playing music and loop
         this.startCountdown(() => {
           if (window.audioManager) {
             window.audioManager.play(0);
           }
           requestAnimationFrame(() => this.gameLoop());
         });
-      }, 300);
-    }, 100);
+      }, 250);
+    }, 50);
   }
 
   startCountdown(onComplete) {
@@ -214,7 +211,7 @@ class GameEngine {
         overlay.classList.add('hidden');
         if (onComplete) onComplete();
       }
-    }, 800);
+    }, 600);
   }
 
   pauseGame() {
@@ -229,7 +226,7 @@ class GameEngine {
     if (!this.isPlaying || this.isPaused) return;
 
     const currentTime = window.audioManager ? window.audioManager.getCurrentTime() : 0;
-    const hitWindow = 0.16; // 160ms window
+    const hitWindow = 0.20; // Expanded 200ms window
 
     let candidate = null;
     let minTimeDiff = Infinity;
@@ -252,7 +249,7 @@ class GameEngine {
         candidate.holding = true;
       }
 
-      if (minTimeDiff < 0.06) {
+      if (minTimeDiff < 0.08) {
         this.registerHit('PERFECT', lane, candidate.x);
         this.perfectHits++;
       } else {
@@ -260,7 +257,6 @@ class GameEngine {
         this.greatHits++;
       }
     } else {
-      // Small penalty for misclick
       this.combo = 0;
       this.updateHUD();
     }
@@ -351,13 +347,11 @@ class GameEngine {
     const currentTime = window.audioManager ? window.audioManager.getCurrentTime() : 0;
     const songDuration = window.audioManager ? window.audioManager.durationSeconds : 150;
 
-    // Check song finish condition
     if (currentTime >= songDuration || (this.notes.length > 0 && this.notes.every(n => n.hit || n.missed))) {
       setTimeout(() => this.endGame(), 500);
       return;
     }
 
-    // Update notes positions and miss detection
     for (let note of this.notes) {
       if (note.hit) {
         if (note.type === 'long' && note.holding) {
@@ -375,8 +369,7 @@ class GameEngine {
       const timeUntilHit = note.time - currentTime;
       note.y = this.hitLineY - (timeUntilHit * note.speed);
 
-      // Miss check
-      if (currentTime > note.time + 0.18 && !note.hit && !note.missed) {
+      if (currentTime > note.time + 0.22 && !note.hit && !note.missed) {
         note.missed = true;
         this.misses++;
         this.combo = 0;
@@ -385,7 +378,6 @@ class GameEngine {
       }
     }
 
-    // Update Particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx;
@@ -396,7 +388,6 @@ class GameEngine {
       }
     }
 
-    // Multiplayer real-time sync
     if (this.isMultiplayer && window.multiplayerManager) {
       window.multiplayerManager.updateRivalSimulation(
         this.score,
@@ -410,7 +401,6 @@ class GameEngine {
     if (!this.ctx) return;
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    // Theme Background
     if (this.currentDifficulty === 'predator') {
       this.ctx.fillStyle = '#0f0203';
     } else {
@@ -422,7 +412,6 @@ class GameEngine {
     for (let i = 0; i < this.lanes; i++) {
       const laneX = i * this.laneWidth;
 
-      // Lane separator
       this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
@@ -430,7 +419,6 @@ class GameEngine {
       this.ctx.lineTo(laneX, this.height);
       this.ctx.stroke();
 
-      // Pressed Lane Flash
       if (this.keyState[i]) {
         const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
         if (this.currentDifficulty === 'predator') {
@@ -446,60 +434,79 @@ class GameEngine {
     }
 
     // Draw Hit Line
-    const lineGlow = this.ctx.createLinearGradient(0, this.hitLineY - 5, 0, this.hitLineY + 5);
+    const lineGlow = this.ctx.createLinearGradient(0, this.hitLineY - 8, 0, this.hitLineY + 8);
     const lineColor = this.currentDifficulty === 'predator' ? '#ff1e27' : '#00f2fe';
     lineGlow.addColorStop(0, 'transparent');
     lineGlow.addColorStop(0.5, lineColor);
     lineGlow.addColorStop(1, 'transparent');
 
     this.ctx.fillStyle = lineGlow;
-    this.ctx.fillRect(0, this.hitLineY - 10, this.width, 20);
+    this.ctx.fillRect(0, this.hitLineY - 12, this.width, 24);
 
-    // Draw Notes
+    // Draw Larger Notes (Height 38px)
+    const noteH = 38;
+    const noteMargin = 6;
+    const noteW = this.laneWidth - (noteMargin * 2);
+
     for (let note of this.notes) {
       if (note.missed || (note.hit && note.type === 'short')) continue;
 
       const laneX = note.lane * this.laneWidth;
-      const noteMargin = 8;
-      const noteW = this.laneWidth - (noteMargin * 2);
 
       let skinColor = '#00f2fe';
-      if (this.selectedSkin === 'gold') skinColor = '#ffd700';
-      if (this.selectedSkin === 'ruby') skinColor = '#e6005c';
-      if (this.currentDifficulty === 'predator') skinColor = '#ff1e27';
+      let skinInnerColor = '#ffffff';
+
+      if (this.selectedSkin === 'gold') {
+        skinColor = '#ffd700';
+        skinInnerColor = '#fff5b8';
+      }
+      if (this.selectedSkin === 'ruby') {
+        skinColor = '#e6005c';
+        skinInnerColor = '#ffb3d1';
+      }
+      if (this.currentDifficulty === 'predator') {
+        skinColor = '#ff1e27';
+        skinInnerColor = '#ff9999';
+      }
 
       if (note.type === 'long') {
         const tailLength = note.duration * note.speed;
         const tailY = note.y - tailLength;
 
-        // Long note trail bounds check
         const startY = Math.max(0, tailY);
         const endY = Math.min(note.y, this.hitLineY);
 
         if (endY > startY) {
           this.ctx.fillStyle = skinColor;
-          this.ctx.globalAlpha = 0.4;
-          this.ctx.fillRect(laneX + noteMargin + 10, startY, noteW - 20, endY - startY);
+          this.ctx.globalAlpha = 0.5;
+          this.ctx.fillRect(laneX + noteMargin + 12, startY, noteW - 24, endY - startY);
           this.ctx.globalAlpha = 1.0;
         }
       }
 
       // Draw Note Head
-      if (!note.hit && note.y > -50 && note.y < this.height + 50) {
-        this.ctx.fillStyle = skinColor;
+      if (!note.hit && note.y > -80 && note.y < this.height + 80) {
         this.ctx.shadowColor = skinColor;
-        this.ctx.shadowBlur = 12;
+        this.ctx.shadowBlur = 18;
 
-        const noteH = 24;
+        // Outer Note Box
+        this.ctx.fillStyle = skinColor;
         if (this.ctx.roundRect) {
           this.ctx.beginPath();
-          this.ctx.roundRect(laneX + noteMargin, note.y - noteH / 2, noteW, noteH, 6);
+          this.ctx.roundRect(laneX + noteMargin, note.y - noteH / 2, noteW, noteH, 10);
           this.ctx.fill();
         } else {
           this.ctx.fillRect(laneX + noteMargin, note.y - noteH / 2, noteW, noteH);
         }
 
+        // Inner Core Glow
         this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = skinInnerColor;
+        if (this.ctx.roundRect) {
+          this.ctx.beginPath();
+          this.ctx.roundRect(laneX + noteMargin + 6, note.y - (noteH - 12) / 2, noteW - 12, noteH - 12, 6);
+          this.ctx.fill();
+        }
       }
     }
 
@@ -523,7 +530,6 @@ class GameEngine {
       ? Math.round(((this.perfectHits * 100 + this.greatHits * 70) / (totalProcessed * 100)) * 100)
       : 100;
 
-    // Calculate Stars as requested
     let starsCount = 0;
     if (accuracy >= 100) starsCount = 7;
     else if (accuracy >= 92) starsCount = 6;
@@ -535,13 +541,11 @@ class GameEngine {
 
     let isRubyStarGranted = false;
     if (this.currentDifficulty === 'predator') {
-      isRubyStarGranted = true; // Completing Predator mode grants the special 8th Red Ruby Star
+      isRubyStarGranted = true;
     }
 
-    // Calculate coin rewards
     const coinReward = Math.floor(this.score / 20) + (starsCount * 20) + (isRubyStarGranted ? 150 : 0);
 
-    // Save profile progress
     if (window.profileShop) {
       window.profileShop.addGameResults(
         coinReward,
@@ -551,7 +555,6 @@ class GameEngine {
       );
     }
 
-    // Multiplayer Victory / Defeat check
     let mpBannerText = "";
     let isVictory = false;
 
@@ -566,7 +569,6 @@ class GameEngine {
       }
     }
 
-    // Show Results Modal
     this.showResultsModal(accuracy, starsCount, isRubyStarGranted, coinReward, mpBannerText, isVictory);
   }
 
