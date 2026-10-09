@@ -558,6 +558,10 @@ body {
   flex-direction: column;
 }
 
+#game-screen.active {
+  display: flex;
+}
+
 .game-hud {
   display: flex;
   justify-content: space-around;
@@ -622,31 +626,74 @@ body {
 .hit-popup.great { color: #00f2fe; text-shadow: 0 0 15px #00f2fe; }
 .hit-popup.miss { color: #ff1e27; text-shadow: 0 0 15px #ff1e27; }
 
-/* Touch Lanes */
+/* Countdown Overlay */
+.countdown-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 12, 22, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.countdown-number {
+  font-family: var(--font-heading);
+  font-size: 6rem;
+  font-weight: 900;
+  color: var(--primary);
+  text-shadow: 0 0 30px var(--primary-glow), 0 0 60px var(--primary);
+}
+
+.countdown-number.animate {
+  animation: countdown-pop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.countdown-number.go {
+  color: #00ff88;
+  text-shadow: 0 0 30px #00ff88, 0 0 60px #00ff88;
+}
+
+@keyframes countdown-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Touch Lanes & Visual Piano Keys */
 .touch-lanes {
   display: flex;
-  height: 60px;
+  height: 65px;
   gap: 8px;
   margin-top: 8px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .touch-lane-btn {
   flex: 1;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  border-radius: 8px;
   color: #fff;
   font-family: var(--font-heading);
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 900;
   cursor: pointer;
   touch-action: manipulation;
+  transition: all 0.1s ease;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.4);
 }
 
 .touch-lane-btn:active, .touch-lane-btn.pressed {
-  background: var(--primary);
+  background: linear-gradient(180deg, var(--primary) 0%, rgba(0, 242, 254, 0.6) 100%);
   color: #000;
-  box-shadow: 0 0 15px var(--primary-glow);
+  box-shadow: 0 0 20px var(--primary-glow), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(2px);
 }
 
 /* Profile Screen */

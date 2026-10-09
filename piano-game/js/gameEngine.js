@@ -47,6 +47,12 @@ class GameEngine {
 
     this.hitLineY = this.height - 110;
     this.laneWidth = this.width / this.lanes;
+
+    if (this.notes && this.notes.length > 0) {
+      for (let note of this.notes) {
+        note.x = note.lane * this.laneWidth + this.laneWidth / 2;
+      }
+    }
   }
 
   initInputListeners() {
@@ -153,11 +159,43 @@ class GameEngine {
 
     this.updateHUD();
 
-    if (window.audioManager) {
-      window.audioManager.play(0);
+    // Start 3-2-1 Countdown before playing music and loop
+    this.startCountdown(() => {
+      if (window.audioManager) {
+        window.audioManager.play(0);
+      }
+      requestAnimationFrame(() => this.gameLoop());
+    });
+  }
+
+  startCountdown(onComplete) {
+    const overlay = document.getElementById('countdown-overlay');
+    const numElem = document.getElementById('countdown-number');
+
+    if (!overlay || !numElem) {
+      if (onComplete) onComplete();
+      return;
     }
 
-    requestAnimationFrame(() => this.gameLoop());
+    overlay.classList.remove('hidden');
+    let count = 3;
+    numElem.textContent = count;
+    numElem.className = 'countdown-number animate';
+
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        numElem.textContent = count;
+        numElem.className = 'countdown-number animate';
+      } else if (count === 0) {
+        numElem.textContent = '¡YA!';
+        numElem.className = 'countdown-number animate go';
+      } else {
+        clearInterval(interval);
+        overlay.classList.add('hidden');
+        if (onComplete) onComplete();
+      }
+    }, 800);
   }
 
   pauseGame() {

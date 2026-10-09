@@ -63,6 +63,7 @@ class BeatDetector {
     const rawNotes = [];
     let lastNoteTime = -1;
     let prevLane = -1;
+    const preRollOffset = 1.5; // 1.5s offset so notes fall from offscreen top to hit line smoothly
 
     for (let i = 1; i < energies.length - 1; i++) {
       const prev = energies[i - 1].energy;
@@ -71,10 +72,11 @@ class BeatDetector {
 
       // Peak detection
       if (curr > threshold && curr > prev && curr >= next) {
-        const time = energies[i].time;
+        const rawTime = energies[i].time;
+        const noteTime = rawTime + preRollOffset;
 
-        if (time - lastNoteTime >= params.minDistance) {
-          // Select lane (avoid picking exact same lane twice continuously when possible)
+        if (rawTime - lastNoteTime >= params.minDistance) {
+          // Select lane
           let lane = Math.floor(Math.random() * this.lanes);
           if (lane === prevLane) {
             lane = (lane + 1) % this.lanes;
@@ -85,7 +87,6 @@ class BeatDetector {
           let duration = 0;
 
           if (isLong) {
-            // Find sustained energy duration
             let endIdx = i;
             while (endIdx < energies.length && energies[endIdx].energy > threshold * 0.7) {
               endIdx++;
@@ -96,7 +97,7 @@ class BeatDetector {
 
           rawNotes.push({
             id: Math.random().toString(36).substr(2, 9),
-            time: Number(time.toFixed(3)),
+            time: Number(noteTime.toFixed(3)),
             duration: Number(duration.toFixed(3)),
             lane: lane,
             type: duration > 0 ? 'long' : 'short',
@@ -108,7 +109,7 @@ class BeatDetector {
             missed: false
           });
 
-          lastNoteTime = time + (duration > 0 ? duration + 0.1 : 0);
+          lastNoteTime = rawTime + (duration > 0 ? duration + 0.1 : 0);
           prevLane = lane;
         }
       }
@@ -117,14 +118,15 @@ class BeatDetector {
     // Fallback if song energy is very low or soft: generate rhythmic fallback pattern
     if (rawNotes.length < 10) {
       const fallbackInterval = params.minDistance * 1.5;
-      for (let t = 1.0; t < totalDuration - 2.0; t += fallbackInterval) {
+      for (let t = 0.5; t < totalDuration - 1.0; t += fallbackInterval) {
         let lane = Math.floor(Math.random() * this.lanes);
         const isLong = Math.random() < params.longNoteProb;
         const dur = isLong ? 0.6 : 0;
+        const noteTime = t + preRollOffset;
 
         rawNotes.push({
           id: Math.random().toString(36).substr(2, 9),
-          time: Number(t.toFixed(3)),
+          time: Number(noteTime.toFixed(3)),
           duration: Number(dur.toFixed(3)),
           lane: lane,
           type: dur > 0 ? 'long' : 'short',
