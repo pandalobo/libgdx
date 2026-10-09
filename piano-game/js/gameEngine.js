@@ -131,41 +131,60 @@ class GameEngine {
       window.audioManager.stop();
     }
 
-    // Chart Generation
-    if (window.beatDetector && window.audioManager && window.audioManager.audioBuffer) {
-      this.notes = window.beatDetector.generateChart(
-        window.audioManager.audioBuffer,
-        this.currentDifficulty,
-        this.width,
-        this.height,
-        this.hitLineY
-      );
-    } else {
-      this.notes = [];
-    }
+    const scanOverlay = document.getElementById('scan-overlay');
+    const scanBarFill = document.getElementById('scan-bar-fill');
+    const scanStatusText = document.getElementById('scan-status-text');
 
-    this.totalNotesCount = this.notes.length;
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
-    this.totalNotesHit = 0;
-    this.perfectHits = 0;
-    this.greatHits = 0;
-    this.misses = 0;
-    this.particles = [];
+    if (scanOverlay) scanOverlay.classList.remove('hidden');
 
-    this.isPlaying = true;
-    this.isPaused = false;
-
-    this.updateHUD();
-
-    // Start 3-2-1 Countdown before playing music and loop
-    this.startCountdown(() => {
-      if (window.audioManager) {
-        window.audioManager.play(0);
+    // Run Beat Detector chart generation with progress update
+    setTimeout(() => {
+      if (window.beatDetector && window.audioManager && window.audioManager.audioBuffer) {
+        this.notes = window.beatDetector.generateChart(
+          window.audioManager.audioBuffer,
+          this.currentDifficulty,
+          this.width,
+          this.height,
+          this.hitLineY,
+          (pct) => {
+            if (scanBarFill) scanBarFill.style.width = `${pct}%`;
+            if (scanStatusText) scanStatusText.textContent = `Escaneando frecuencias y ritmo RMS (${pct}%)`;
+          }
+        );
+      } else {
+        this.notes = [];
       }
-      requestAnimationFrame(() => this.gameLoop());
-    });
+
+      if (scanBarFill) scanBarFill.style.width = '100%';
+      if (scanStatusText) scanStatusText.textContent = '¡Análisis completado! Preparando juego...';
+
+      setTimeout(() => {
+        if (scanOverlay) scanOverlay.classList.add('hidden');
+
+        this.totalNotesCount = this.notes.length;
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.totalNotesHit = 0;
+        this.perfectHits = 0;
+        this.greatHits = 0;
+        this.misses = 0;
+        this.particles = [];
+
+        this.isPlaying = true;
+        this.isPaused = false;
+
+        this.updateHUD();
+
+        // Start 3-2-1 Countdown before playing music and loop
+        this.startCountdown(() => {
+          if (window.audioManager) {
+            window.audioManager.play(0);
+          }
+          requestAnimationFrame(() => this.gameLoop());
+        });
+      }, 300);
+    }, 100);
   }
 
   startCountdown(onComplete) {
@@ -453,11 +472,16 @@ class GameEngine {
         const tailLength = note.duration * note.speed;
         const tailY = note.y - tailLength;
 
-        // Draw long note trail
-        this.ctx.fillStyle = skinColor;
-        this.ctx.globalAlpha = 0.4;
-        this.ctx.fillRect(laneX + noteMargin + 10, Math.max(0, tailY), noteW - 20, Math.min(note.y, this.hitLineY) - tailY);
-        this.ctx.globalAlpha = 1.0;
+        // Long note trail bounds check
+        const startY = Math.max(0, tailY);
+        const endY = Math.min(note.y, this.hitLineY);
+
+        if (endY > startY) {
+          this.ctx.fillStyle = skinColor;
+          this.ctx.globalAlpha = 0.4;
+          this.ctx.fillRect(laneX + noteMargin + 10, startY, noteW - 20, endY - startY);
+          this.ctx.globalAlpha = 1.0;
+        }
       }
 
       // Draw Note Head
