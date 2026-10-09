@@ -83,6 +83,7 @@ import com.badlogic.gdx.tests.gles2.VertexArrayTest;
 import com.badlogic.gdx.tests.gles3.GL30FrameBufferMultisampleMRTTest;
 import com.badlogic.gdx.tests.gles3.GL30FrameBufferMultisampleTest;
 import com.badlogic.gdx.tests.gles3.GL30Texture3DTest;
+import com.badlogic.gdx.tests.gles3.InstancedRenderingSpriteTest;
 import com.badlogic.gdx.tests.gles3.InstancedRenderingTest;
 import com.badlogic.gdx.tests.gles3.ModelInstancedRenderingTest;
 import com.badlogic.gdx.tests.gles3.NonPowerOfTwoTest;
@@ -113,6 +114,8 @@ public class GdxTests {
 		AccelerometerTest.class,
 		ActionSequenceTest.class,
 		ActionTest.class,
+		ActorGestureListenerPointerTest.class,
+		ActorGestureListenerTouchUpTest.class,
 		Affine2Test.class,
 		AlphaTest.class,
 		Animation3DTest.class,
@@ -194,12 +197,14 @@ public class GdxTests {
 		HexagonalTiledMapTest.class,
 		I18NMessageTest.class,
 		I18NSimpleMessageTest.class,
+		ImageFormatTest.class,
 		ImageScaleTest.class,
 		ImageTest.class,
 		ImmediateModeRendererTest.class,
 		IndexBufferObjectShaderTest.class,
 		InputTest.class,
 		InstancedRenderingTest.class,
+		InstancedRenderingSpriteTest.class,
 		IntegerBitmapFontTest.class,
 		InterpolationTest.class,
 		IntersectorOverlapConvexPolygonsTest.class,
@@ -296,7 +301,9 @@ public class GdxTests {
 		TextAreaTest.class,
 		TextAreaTest2.class,		
 		TextAreaTest3.class,
+		TextAreaTest4.class,
 		TextButtonTest.class,
+		TextFieldTest.class,
 		TextInputDialogTest.class,
 		TextureAtlasTest.class,
 		TextureArrayTest.class,
